@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<meta name="theme-color" content="#090d16" />
+<title>TRAMACOR — Consola Digital</title>
+<style>
+:root {
+--bg: #090d16;
+--card: #111827;
+--card-2: #172033;
+--accent: #38bdf8;
+--accent-2: #22c55e;
+--text: #f8fafc;
+--muted: #94a3b8;
+--border: rgba(148, 163, 184, 0.16);
+}
+* { box-sizing: border-box; }
+body {
+margin: 0;
+font-family: system-ui, -apple-system, sans-serif;
+background: var(--bg);
+color: var(--text);
+padding: 16px;
+max-width: 680px;
+margin-inline: auto;
+}
+.header {
+display: flex;
+justify-content: space-between;
+align-items: center;
+background: var(--card);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 14px 16px;
+margin-bottom: 14px;
+}
+.brand { font-weight: 800; letter-spacing: 0.5px; font-size: 1.05rem; }
+.sub { font-size: 0.78rem; color: var(--muted); }
+.badge {
+background: rgba(34, 197, 94, 0.15);
+color: #4ade80;
+border: 1px solid rgba(34, 197, 94, 0.35);
+padding: 4px 10px;
+border-radius: 999px;
+font-size: 0.75rem;
+font-weight: 600;
+}
+.chips {
+display: grid;
+grid-template-columns: repeat(2, 1fr);
+gap: 8px;
+margin-bottom: 14px;
+}
+.chip {
+background: var(--card-2);
+color: var(--text);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 10px 12px;
+font-size: 0.85rem;
+font-weight: 600;
+text-align: left;
+cursor: pointer;
+}
+.chip:active { transform: scale(0.99); border-color: var(--accent); }
+.composer {
+background: var(--card);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 14px;
+margin-bottom: 16px;
+}
+textarea {
+width: 100%;
+min-height: 84px;
+background: var(--bg);
+color: var(--text);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 10px 12px;
+font-size: 0.95rem;
+resize: vertical;
+margin-bottom: 10px;
+}
+.actions {
+display: flex;
+gap: 8px;
+flex-wrap: wrap;
+}
+button.primary {
+flex: 1;
+background: var(--accent);
+color: #041019;
+border: none;
+border-radius: 12px;
+padding: 12px 16px;
+font-weight: 800;
+font-size: 0.92rem;
+cursor: pointer;
+}
+button.secondary {
+background: var(--card-2);
+color: var(--text);
+border: 1px solid var(--border);
+border-radius: 12px;
+padding: 12px 14px;
+font-weight: 600;
+font-size: 0.88rem;
+cursor: pointer;
+}
+.status {
+font-size: 0.82rem;
+color: var(--muted);
+margin-top: 8px;
+min-height: 18px;
+}
+.cards { display: flex; flex-direction: column; gap: 12px; }
+.card {
+background: var(--card);
+border: 1px solid var(--border);
+border-radius: 16px;
+padding: 14px 16px;
+}
+.card-top {
+display: flex;
+justify-content: space-between;
+align-items: center;
+margin-bottom: 8px;
+font-size: 0.78rem;
+color: var(--accent);
+font-weight: 700;
+}
+.card-body {
+white-space: pre-wrap;
+line-height: 1.45;
+font-size: 0.92rem;
+}
+.copy-btn {
+margin-top: 10px;
+background: var(--card-2);
+color: var(--text);
+border: 1px solid var(--border);
+border-radius: 8px;
+padding: 6px 10px;
+font-size: 0.78rem;
+cursor: pointer;
+}
+</style>
+</head>
+<body>
+<div class="header">
+<div>
+<div class="brand">TRAMACOR • JARVIS</div>
+<div class="sub">TramaTándem · Consola Operativa</div>
+</div>
+<div class="badge">ONLINE</div>
+</div>
+
+<div class="chips">
+<button class="chip" onclick="setQuick('Diagnostica fugas de dinero y dame mensaje directo para: ')">🎯 Diagnóstico Express</button>
+<button class="chip" onclick="setQuick('Prepara mensaje de seguimiento y cierre sin presión para: ')">📲 Seguimiento / Cobro</button>
+<button class="chip" onclick="setQuick('Crea un guion viral corto (gancho 3s + valor + CTA) sobre: ')">🎬 Guion Viral</button>
+<button class="chip" onclick="setQuick('Arma propuesta de demo marca blanca en 3 puntos para aliado/agencia: ')">🤝 Demo Aliado</button>
+</div>
+
+<div class="composer">
+<textarea id="promptInput" placeholder="Escribe una orden o toca un botón rápido... Ej: Analiza una clínica dental sin seguimiento de WhatsApp."></textarea>
+<div class="actions">
+<button class="primary" id="sendBtn" onclick="sendOrder()">Enviar a TRAMACOR</button>
+<button class="secondary" onclick="startVoice()">🎤 Voz</button>
+<button class="secondary" onclick="queueNight()">🌙 Dejar listo</button>
+</div>
+<div class="status" id="statusText">Listo para ejecutar.</div>
+</div>
+
+<div class="cards" id="cardsContainer"></div>
+
+<script>
+https://main-production-c106.up.railway.app/webhook/tramacor-chat
+
+const WEBHOOK_URL = https://main-production-c106.up.railway.app/webhook/tramacor-chat
+
+const STORAGE_KEY = "tramacor_cards_v1";
+
+function loadCards() {
+const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+const container = document.getElementById("cardsContainer");
+container.innerHTML = "";
+saved.forEach((item, idx) => {
+const div = document.createElement("div");
+div.className = "card";
+div.innerHTML = &lt;div class="card-top"&gt; &lt;span&gt;${item.tag}</span>
+<span>${item.time}&lt;/span&gt; &lt;/div&gt; &lt;div class="card-body"&gt;${escapeHtml(item.text)}</div>
+<button class="copy-btn" onclick="copyCard(${idx})"&gt;Copiar tarjeta&lt;/button&gt;;
+container.appendChild(div);
+});
+}
+
+function saveCard(tag, text) {
+const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+saved.unshift({ tag, text, time: now });
+localStorage.setItem(STORAGE_KEY, JSON.stringify(saved.slice(0, 25)));
+loadCards();
+}
+
+function escapeHtml(str) {
+return String(str).replace(/[&<>"']/g, m => ({
+"&": "&", "<": "<", ">": ">", '"': """, "'": "'"
+}[m]));
+}
+
+function setQuick(prefix) {
+const input = document.getElementById("promptInput");
+input.value = prefix;
+input.focus();
+}
+
+async function sendOrder(customTag = "RESPUESTA TRAMACOR") {
+const input = document.getElementById("promptInput");
+const status = document.getElementById("statusText");
+const btn = document.getElementById("sendBtn");
+const mensaje = input.value.trim();
+
+if (!mensaje) {
+status.textContent = "Escribe o dicta una orden primero.";
+return;
+}
+if (!WEBHOOK_URL || WEBHOOK_URL.includes("PEGA_AQUI")) {
+status.textContent = "Falta poner tu URL real del Webhook en el código.";
+return;
+}
+
+btn.disabled = true;
+status.textContent = "Ejecutando en n8n + Gemini...";
+
+try {
+const res = await fetch(WEBHOOK_URL, {
+method: "POST",
+headers: { "Content-Type": "application/json" },
+body: JSON.stringify({ mensaje, origen: "pwa_tramacor" })
+});
+const data = await res.json();
+const reply = data.assistant || data.output || JSON.stringify(data, null, 2);
+saveCard(customTag, reply);
+status.textContent = "Tarjeta generada con éxito.";
+input.value = "";
+} catch (err) {
+status.textContent = "Error al conectar con el Webhook: " + err.message;
+} finally {
+btn.disabled = false;
+}
+}
+
+function queueNight() {
+const input = document.getElementById("promptInput");
+const status = document.getElementById("statusText");
+const mensaje = input.value.trim();
+if (!mensaje) {
+status.textContent = "Escribe la tarea que quieres dejar programada.";
+return;
+}
+saveCard("TAREA PROGRAMADA", mensaje);
+status.textContent = "Guardada en tu bandeja local para revisar/disparar.";
+input.value = "";
+}
+
+function copyCard(idx) {
+const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+if (!saved[idx]) return;
+navigator.clipboard.writeText(saved[idx].text);
+}
+
+function startVoice() {
+const status = document.getElementById("statusText");
+const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+if (!SpeechRecognition) {
+status.textContent = "Tu navegador no soporta voz aquí; usa el micrófono del teclado.";
+return;
+}
+const rec = new SpeechRecognition();
+rec.lang = "es-ES";
+status.textContent = "Escuchando...";
+rec.onresult = (e) => {
+const transcript = e.results[0][0].transcript;
+document.getElementById("promptInput").value = transcript;
+status.textContent = "Voz capturada. Listo para enviar.";
+};
+rec.onerror = () => {
+status.textContent = "No se pudo capturar el audio.";
+};
+rec.start();
+}
+
+loadCards();
+</script>
+</body>
+</html>
