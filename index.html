@@ -178,124 +178,163 @@ cursor: pointer;
 <div class="cards" id="cardsContainer"></div>
 
 <script>
+  const WEBHOOK_URL = "https://main-production-c106.up.railway.app/webhook/tramacor-chat";
+  const STORAGE_KEY = "tramacor_cards_v1";
 
+  function setStatus(msg) {
+    const el = document.getElementById("statusText");
+    if (el) el.textContent = msg;
+  }
 
-const WEBHOOK_URL = "https://main-production-c106.up.railway.app/webhook/tramacor-chat";
+  function setQuick(text) {
+    const input = document.getElementById("promptInput");
+    if (input) {
+      input.value = text;
+      input.focus();
+    }
+  }
 
+  function loadCards() {
+    const container = document.getElementById("cardsContainer");
+    if (!container) return;
+    let saved = [];
+    try {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch (e) {
+      saved = [];
+    }
+    container.innerHTML = "";
+    saved.forEach((item, idx) => {
+      const div = document.createElement("div");
+      div.className = "card";
 
-const STORAGE_KEY = "tramacor_cards_v1";
+      const top = document.createElement("div");
+      top.className = "card-top";
 
-function loadCards() {
-const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-const container = document.getElementById("cardsContainer");
-container.innerHTML = "";
-saved.forEach((item, idx) => {
-const div = document.createElement("div");
-div.className = "card";
-div.innerHTML = &lt;div class="card-top"&gt; &lt;span&gt;${item.tag}</span>
-<span>${item.time}&lt;/span&gt; &lt;/div&gt; &lt;div class="card-body"&gt;${escapeHtml(item.text)}</div>
-<button class="copy-btn" onclick="copyCard(${idx})"&gt;Copiar tarjeta&lt;/button&gt;;
-container.appendChild(div);
-});
-}
+      const spanTime = document.createElement("span");
+      spanTime.textContent = (item.tag ? item.tag + " · " : "") + (item.time || "");
 
-function saveCard(tag, text) {
-const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
-saved.unshift({ tag, text, time: now });
-localStorage.setItem(STORAGE_KEY, JSON.stringify(saved.slice(0, 25)));
-loadCards();
-}
+      const copyBtn = document.createElement("button");
+      copyBtn.className = "copy-btn";
+      copyBtn.type = "button";
+      copyBtn.textContent = "Copiar";
+      copyBtn.onclick = () => copyCard(idx);
 
-function escapeHtml(str) {
-return String(str).replace(/[&<>"']/g, m => ({
-"&": "&", "<": "<", ">": ">", '"': """, "'": "'"
-}[m]));
-}
+      top.appendChild(spanTime);
+      top.appendChild(copyBtn);
 
-function setQuick(prefix) {
-const input = document.getElementById("promptInput");
-input.value = prefix;
-input.focus();
-}
+      const body = document.createElement("div");
+      body.className = "card-body";
+      body.textContent = item.text || "";
 
-async function sendOrder(customTag = "RESPUESTA TRAMACOR") {
-const input = document.getElementById("promptInput");
-const status = document.getElementById("statusText");
-const btn = document.getElementById("sendBtn");
-const mensaje = input.value.trim();
+      div.appendChild(top);
+      div.appendChild(body);
+      container.appendChild(div);
+    });
+  }
 
-if (!mensaje) {
-status.textContent = "Escribe o dicta una orden primero.";
-return;
-}
-if (!WEBHOOK_URL || WEBHOOK_URL.includes("PEGA_AQUI")) {
-status.textContent = "Falta poner tu URL real del Webhook en el código.";
-return;
-}
+  function saveCard(tag, text) {
+    let saved = [];
+    try {
+      saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+    } catch (e) {
+      saved = [];
+    }
+    const now = new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    saved.unshift({ tag, text, time: now });
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(saved.slice(0, 30)));
+    loadCards();
+  }
 
-btn.disabled = true;
-status.textContent = "Ejecutando en n8n + Gemini...";
+  function copyCard(idx) {
+    try {
+      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
+      if (!saved[idx]) return;
+      navigator.clipboard.writeText(saved[idx].text || "");
+      setStatus("Respuesta copiada.");
+    } catch (e) {
+      setStatus("No se pudo copiar.");
+    }
+  }
 
-try {
-const res = await fetch(WEBHOOK_URL, {
-method: "POST",
-headers: { "Content-Type": "application/json" },
-body: JSON.stringify({ mensaje, origen: "pwa_tramacor" })
-});
-const data = await res.json();
-const reply = data.assistant || data.output || JSON.stringify(data, null, 2);
-saveCard(customTag, reply);
-status.textContent = "Tarjeta generada con éxito.";
-input.value = "";
-} catch (err) {
-status.textContent = "Error al conectar con el Webhook: " + err.message;
-} finally {
-btn.disabled = false;
-}
-}
+  async function sendOrder() {
+    const input = document.getElementById("promptInput");
+    const btn = document.getElementById("sendBtn");
+    const prompt = input ? input.value.trim() : "";
 
-function queueNight() {
-const input = document.getElementById("promptInput");
-const status = document.getElementById("statusText");
-const mensaje = input.value.trim();
-if (!mensaje) {
-status.textContent = "Escribe la tarea que quieres dejar programada.";
-return;
-}
-saveCard("TAREA PROGRAMADA", mensaje);
-status.textContent = "Guardada en tu bandeja local para revisar/disparar.";
-input.value = "";
-}
+    if (!prompt) {
+      setStatus("Escribe una orden antes de enviar.");
+      return;
+    }
 
-function copyCard(idx) {
-const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || "[]");
-if (!saved[idx]) return;
-navigator.clipboard.writeText(saved[idx].text);
-}
+    if (btn) btn.disabled = true;
+    setStatus("Enviando a TRAMACOR...");
 
-function startVoice() {
-const status = document.getElementById("statusText");
-const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-if (!SpeechRecognition) {
-status.textContent = "Tu navegador no soporta voz aquí; usa el micrófono del teclado.";
-return;
-}
-const rec = new SpeechRecognition();
-rec.lang = "es-ES";
-status.textContent = "Escuchando...";
-rec.onresult = (e) => {
-const transcript = e.results[0][0].transcript;
-document.getElementById("promptInput").value = transcript;
-status.textContent = "Voz capturada. Listo para enviar.";
-};
-rec.onerror = () => {
-status.textContent = "No se pudo capturar el audio.";
-};
-rec.start();
-}
+    try {
+      const res = await fetch(WEBHOOK_URL, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          chatInput: prompt,
+          message: prompt,
+          source: "tramacor-pwa"
+        })
+      });
 
-loadCards();
+      const rawText = await res.text();
+      if (!res.ok) {
+        throw new Error("HTTP " + res.status + ": " + rawText.slice(0, 120));
+      }
+
+      let replyText = rawText;
+      try {
+        const data = JSON.parse(rawText);
+        replyText = data.output || data.response || data.text || data.message || JSON.stringify(data, null, 2);
+      } catch (e) {
+        // Si n8n responde texto plano, se deja tal cual
+      }
+
+      saveCard("TRAMACOR", replyText);
+      setStatus("Respuesta recibida.");
+      if (input) input.value = "";
+    } catch (err) {
+      setStatus("Error: " + (err && err.message ? err.message : "No se pudo conectar con n8n."));
+    } finally {
+      if (btn) btn.disabled = false;
+    }
+  }
+
+  function queueNight() {
+    const input = document.getElementById("promptInput");
+    const prompt = input ? input.value.trim() : "";
+    if (!prompt) {
+      setStatus("Escribe algo para dejar listo.");
+      return;
+    }
+    saveCard("PENDIENTE", prompt);
+    if (input) input.value = "";
+    setStatus("Guardado en pendientes.");
+  }
+
+  function startVoice() {
+    const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRec) {
+      setStatus("Voz no compatible en este navegador.");
+      return;
+    }
+    const rec = new SpeechRec();
+    rec.lang = "es-ES";
+    setStatus("Escuchando...");
+    rec.onresult = (event) => {
+      const transcript = event.results[0][0].transcript;
+      setQuick(transcript);
+      setStatus("Dictado listo.");
+    };
+    rec.onerror = () => {
+      setStatus("Error al capturar voz.");
+    };
+    rec.start();
+  }
+
+  loadCards();
 </script>
-</body>
-</html>
